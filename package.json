@@ -8,7 +8,7 @@
     "build:torii-quest-dashboard": "node tools/build-torii-quest-dashboard.mjs",
     "build": "node tools/build-torii-quest-dashboard.mjs && vite build && npm run build:server",
     "preview": "vite preview",
-    "check": "node tools/regression-check.mjs",
+    "check": "node tools/regression-check.mjs && node tools/service-worker-base-check.mjs",
     "bundle:report": "node tools/bundle-report.mjs",
     "handoff:status": "node tools/handoff-status.mjs",
     "handoff:summary": "node tools/handoff-summary.mjs",
