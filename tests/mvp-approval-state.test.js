@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   MVP_APPROVAL_BADGE, MVP_APPROVAL_SCHEMA, MVP_APPROVAL_SCHEMA_VERSION, MVP_APPROVAL_FILE,
-  MVP_APPROVAL_STATUSES, APPROVAL_REQUIRED_FIELDS,
+  MVP_APPROVAL_STATUSES, APPROVAL_REQUIRED_FIELDS, MVP_APPROVAL_PENDING_NOTE,
   buildApprovalState, validateApprovalState, isApproved, formatApprovalState,
   summarizeApprovalForState,
 } from '../tools/mvpApproval.mjs';
@@ -47,7 +47,7 @@ describe('buildApprovalState — coercion + defaults', () => {
       deploy: false, publish: false, push: false, tag: false,
       networkWrite: false, nostrWrite: false, godMode: false,
     });
-    expect(s.notes).toMatch(/Awaiting EXPLICIT user MVP approval/);
+    expect(s.notes).toBe(MVP_APPROVAL_PENDING_NOTE);
     expect(s.notes).toMatch(/Automated gate status is tracked separately/);
     expect(s.notes).not.toMatch(/gates are green/i);
   });
@@ -179,6 +179,7 @@ describe('committed MVP_APPROVAL_STATE.json', () => {
     const parsed = JSON.parse(raw);
     expect(parsed.status).toBe(MVP_APPROVAL_STATUSES.PENDING);
     expect(parsed.version).toBe(VERSION);
+    expect(parsed.notes).toBe(MVP_APPROVAL_PENDING_NOTE);
     expect(parsed.notes).toMatch(/Automated gate status is tracked separately/);
     expect(parsed.notes).not.toMatch(/gates are green/i);
     expect(validateApprovalState(parsed).ok).toBe(true);
