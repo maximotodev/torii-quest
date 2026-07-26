@@ -36,11 +36,12 @@ export const MVP_APPROVAL_STATUSES = Object.freeze({ PENDING: 'pending', APPROVE
 export const APPROVAL_REQUIRED_FIELDS = Object.freeze(['approved_by', 'approved_at']);
 
 // Human-facing wording carried IN the artifact so any surface that renders it inherits the
-// "pending until a human explicitly approves" contract verbatim.
+// "pending until a human explicitly approves" contract verbatim. Automated gate evidence is
+// intentionally not asserted here: that status belongs to the separately generated gate data.
 export const MVP_APPROVAL_PENDING_NOTE =
-  'Awaiting EXPLICIT user MVP approval. Local automated gates are green, but the live-browser ' +
-  'playtest + sign-off is a human step. Do NOT set status to "approved" until the user says so; ' +
-  'an approval must also record approved_by and approved_at.';
+  'Awaiting EXPLICIT user MVP approval. Automated gate status is tracked separately; the ' +
+  'live-browser playtest + sign-off is a human step. Do NOT set status to "approved" until the ' +
+  'user says so; an approval must also record approved_by and approved_at.';
 
 const VERSION_MARKER_RE = /^v\d+\.\d+\.\d+(?:-[a-z][a-z0-9.]*)?$/i;
 
