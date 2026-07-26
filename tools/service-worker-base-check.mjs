@@ -34,9 +34,9 @@ if (!sw.includes('self.registration.scope')) {
   pass('precache resolution uses self.registration.scope');
 }
 
-const manifest = sw.match(/const\s+PRECACHE_ASSET_NAMES\s*=\s*\[([\s\S]*?)\];/);
+const manifest = sw.match(/const\s+PRECACHE_ASSETS\s*=\s*\[([\s\S]*?)\];/);
 if (!manifest) {
-  fail('public/sw.js PRECACHE_ASSET_NAMES manifest is missing');
+  fail('public/sw.js PRECACHE_ASSETS manifest is missing');
 } else {
   const entries = [...manifest[1].matchAll(/['"]([^'"]+)['"]/g)].map((match) => match[1]);
   if (entries.length === 0) {
