@@ -8,7 +8,7 @@
   "commit": null,
   "approved_by": null,
   "approved_at": null,
-  "notes": "Awaiting EXPLICIT user MVP approval. Local automated gates are green, but the live-browser playtest + sign-off is a human step. Do NOT set status to \"approved\" until the user says so; an approval must also record approved_by and approved_at.",
+  "notes": "Awaiting EXPLICIT user MVP approval. Automated gate status is tracked separately; the live-browser playtest + sign-off is a human step. Do NOT set status to \"approved\" until the user says so; an approval must also record approved_by and approved_at.",
   "safety": {
     "deploy": false,
     "publish": false,
