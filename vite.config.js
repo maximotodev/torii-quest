@@ -41,6 +41,10 @@ function entryUrl(base) {
   return `${base}assets/${ENTRY_BASE}?v=${BUILD_STAMP}`;
 }
 
+function serviceWorkerRegistration(base) {
+  return `navigator.serviceWorker.register('${base}sw.js', { scope: '${base}' })`;
+}
+
 // Recompute the sha256 of the single attribute-less inline <script> in dist/index.html.
 // Must match the extraction regex used by tools/regression-check.mjs (check 16c).
 function inlineScriptShaOf(html) {
@@ -69,10 +73,8 @@ function cspHeaderPlugin() {
         // Base-agnostic: matches `/assets/…` and base-prefixed `/quest/assets/…`.
         let out = html
           .replace(/\s*<script\b[^>]*\bsrc="[^"]*\/assets\/torii-entry\.js"[^>]*><\/script>/, '')
-          .replace(/\s*<link\b[^>]*\bhref="[^"]*\/assets\/torii-entry\.js"[^>]*>/g, '');
-        // Append the versioned entry import to the single classic inline bootstrap
-        // script. The ?v=<stamp> query busts the 4h CDN edge cache on every publish so a
-        // stale entry (pointing at a dead chunk hash) can never reach a returning player.
+          .replace(/\s*<link\b[^>]*\bhref="[^"]*\/assets\/torii-entry\.js"[^>]*>/g, '')
+          .replace("navigator.serviceWorker.register('/sw.js')", serviceWorkerRegistration(resolvedBase));
         // Append the versioned entry import to the LAST inline bootstrap <script>
         // in the document. v0.2.360-alpha regression fix: previously matched
         // `\n</script>\n</body>` verbatim, which silently no-op'd when v0.2.358
@@ -97,7 +99,7 @@ function cspHeaderPlugin() {
       // module fetch instead of hitting the CDN-stale un-versioned URL.
       if (existsSync(assetsDir)) {
         for (const f of readdirSync(assetsDir)) {
-          if (!f.endsWith('.js') || f === ENTRY_BASE) continue; // skip the entry itself
+          if (!f.endsWith('.js') || f === ENTRY_BASE) continue;
           const p = join(assetsDir, f);
           const src = readFileSync(p, 'utf8');
           // Skip if this chunk doesn't import the entry at all (cheap guard).
@@ -110,7 +112,7 @@ function cspHeaderPlugin() {
       // Recompute the inline-bootstrap sha from the EMITTED dist/index.html (which now
       // carries the versioned import line) and write _headers with the matching policy.
       const htmlPath = join(dir, 'index.html');
-      let body = headersFileBody(); // fallback to the hardcoded sha
+      let body = headersFileBody();
       if (existsSync(htmlPath)) {
         const sha = inlineScriptShaOf(readFileSync(htmlPath, 'utf8'));
         if (sha) body = headersFileBodyForSha(sha);
@@ -118,8 +120,6 @@ function cspHeaderPlugin() {
       writeFileSync(join(dir, '_headers'), body);
     },
     configurePreviewServer(server) {
-      // Serve the CSP that matches the built dist inline script if one exists; otherwise
-      // fall back to the hardcoded sha (pre-build preview of the source shell).
       const distHtmlPath = join(process.cwd(), 'dist', 'index.html');
       let csp = CSP_VALUE;
       if (existsSync(distHtmlPath)) {
@@ -139,41 +139,19 @@ export default defineConfig({
   server: { port: 5174 },
   build: {
     outDir: 'dist',
-    // Rapier (2.2M) is an intentional LAZY chunk (dynamic import on Enter
-    // Arena) and never blocks initial paint, so 700K is the right bar for the
-    // UPFRONT chunks (three-vendor + game logic); the lazy physics giant is
-    // expected and does not trip a real-size warning.
     chunkSizeWarningLimit: 2500,
     rollupOptions: {
       output: {
-        // Pin the entry chunk to a stable filename so the inline bootstrap's
-        // import() target (and therefore its sha256 in the CSP) never churns.
         entryFileNames: 'assets/torii-entry.js',
         manualChunks(id) {
-          // All three.js core + addons in one vendor chunk. (Addons can't be
-          // deferred separately yet: the arena modules that import them are
-          // statically imported at startup. Deferring them is a future
-          // arena-bundle lazy-load behind Enter Arena — a game-loop refactor.)
           if (id.includes('/three/')) return 'three-vendor';
         }
       }
     }
   },
-  // Silence Rolldown codeSplitting suggestion — we're handling it manually
   optimizeDeps: {
-    exclude: ['@dimforge/rapier3d-compat'] // don't pre-bundle Rapier — it's lazy
+    exclude: ['@dimforge/rapier3d-compat']
   },
-  // Vitest config (v0.2.120, perf tuning v0.2.260). Node environment — the unit
-  // suite covers pure logic seams (state machine, event bus, headshot classifier)
-  // only, so no jsdom/Three/Rapier/browser is needed. `npm test` runs `vitest run`.
-  //
-  // pool: 'threads' + isolate: false — the suite is 108 files / 1834 tests but
-  // every test imports only PURE helpers (no THREE, no Rapier, no DOM, no module-
-  // scope mutation). Per-file isolation was costing ~26 s of collect/prepare overhead
-  // for ~1.5 s of actual test execution. Sharing the worker module graph drops the
-  // full suite from ~28.7 s to ~2.7 s with all 1834 tests still green. If a future
-  // test ever needs a fresh module graph (rare for pure-logic seams), move it to a
-  // dedicated vitest project with isolate:true rather than reverting this default.
   test: {
     environment: 'node',
     include: ['tests/**/*.test.js'],
