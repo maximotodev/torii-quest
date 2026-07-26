@@ -24,6 +24,7 @@ import { CSP_VALUE, headersFileBody, headersFileBodyForSha, cspValueForSha } fro
 // Rewriting both to the same versioned URL makes the browser dedupe to the fresh fetch.
 const BUILD_STAMP = Date.now().toString(36);
 const ENTRY_BASE = 'torii-entry.js';
+const SW_REGISTRATION_SOURCE = "navigator.serviceWorker.register('/sw.js')";
 // Matches import specifiers pointing at the pinned entry, e.g. from"./torii-entry.js"
 // or from'./torii-entry.js' or from"/assets/torii-entry.js" or from"/quest/assets/torii-entry.js".
 // Avoids touching the entry file itself or unrelated strings.
@@ -73,8 +74,15 @@ function cspHeaderPlugin() {
         // Base-agnostic: matches `/assets/…` and base-prefixed `/quest/assets/…`.
         let out = html
           .replace(/\s*<script\b[^>]*\bsrc="[^"]*\/assets\/torii-entry\.js"[^>]*><\/script>/, '')
-          .replace(/\s*<link\b[^>]*\bhref="[^"]*\/assets\/torii-entry\.js"[^>]*>/g, '')
-          .replace("navigator.serviceWorker.register('/sw.js')", serviceWorkerRegistration(resolvedBase));
+          .replace(/\s*<link\b[^>]*\bhref="[^"]*\/assets\/torii-entry\.js"[^>]*>/g, '');
+        // The source marker is intentionally exact: this build transform owns the
+        // base injection for both the worker script and scope. Fail closed if the
+        // source registration changes so a formatting drift cannot silently emit
+        // root-relative `/sw.js` again.
+        if (!out.includes(SW_REGISTRATION_SOURCE)) {
+          throw new Error('torii-csp-http-header: service-worker registration marker missing');
+        }
+        out = out.replace(SW_REGISTRATION_SOURCE, serviceWorkerRegistration(resolvedBase));
         // Append the versioned entry import to the LAST inline bootstrap <script>
         // in the document. v0.2.360-alpha regression fix: previously matched
         // `\n</script>\n</body>` verbatim, which silently no-op'd when v0.2.358
