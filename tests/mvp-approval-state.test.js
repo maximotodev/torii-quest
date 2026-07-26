@@ -41,13 +41,15 @@ describe('buildApprovalState — coercion + defaults', () => {
     expect(s.status).toBe('approved');
   });
 
-  it('pins the standing safety posture all-false and supplies a default pending note', () => {
+  it('pins the standing safety posture all-false and supplies an evidence-neutral pending note', () => {
     const s = buildApprovalState({ status: 'pending', version: V });
     expect(s.safety).toEqual({
       deploy: false, publish: false, push: false, tag: false,
       networkWrite: false, nostrWrite: false, godMode: false,
     });
     expect(s.notes).toMatch(/Awaiting EXPLICIT user MVP approval/);
+    expect(s.notes).toMatch(/Automated gate status is tracked separately/);
+    expect(s.notes).not.toMatch(/gates are green/i);
   });
 
   it('trims blank provenance fields to null', () => {
@@ -170,13 +172,15 @@ describe('summarizeApprovalForState — next-action fold', () => {
 // slice can never accidentally ship an "approved" record, and a version bump can't leave it
 // behind.
 describe('committed MVP_APPROVAL_STATE.json', () => {
-  it('is present, pending, valid, and tracks the config VERSION', () => {
+  it('is present, pending, valid, evidence-neutral, and tracks the config VERSION', () => {
     let raw = null;
     try { raw = readFileSync(join(process.cwd(), MVP_APPROVAL_FILE), 'utf8'); } catch { raw = null; }
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw);
     expect(parsed.status).toBe(MVP_APPROVAL_STATUSES.PENDING);
     expect(parsed.version).toBe(VERSION);
+    expect(parsed.notes).toMatch(/Automated gate status is tracked separately/);
+    expect(parsed.notes).not.toMatch(/gates are green/i);
     expect(validateApprovalState(parsed).ok).toBe(true);
     expect(isApproved(parsed)).toBe(false);
   });
