@@ -1,4 +1,4 @@
-// tests/quest-base-entry.test.js — deploy-base entry-import contract (v0.2.370-alpha).
+// tests/quest-base-entry.test.js — deploy-base emitted-artifact contracts (v0.2.370-alpha).
 //
 // Freezes the v0.2.370-alpha production regression: on the Torii Suite the app is
 // mounted at a subpath (`/quest/`) and built with `vite build --base=/quest/`. The
@@ -10,8 +10,9 @@
 // `import('./arenaRuntime.js')` graph load REJECTED and the arena never booted (live
 // symptom: click ENTER ARENA → session hangs / never renders a frame).
 //
-// This is a real `--base=/quest/` build into a throwaway outDir, asserting every
-// entry-import URL carries the deploy base. A root-relative regression fails here.
+// The same real build also freezes issue #27's service-worker contract: the worker
+// script URL and scope carry `/quest/`, while its precache entries remain relative
+// and resolve against the worker's registration scope.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
@@ -32,6 +33,7 @@ function collectEntryUrls(text) {
 }
 
 let indexHtml = '';
+let serviceWorker = '';
 let chunkUrls = [];
 let arenaChunk = '';
 
@@ -44,6 +46,7 @@ beforeAll(() => {
     stdio: 'pipe',
   });
   indexHtml = readFileSync(join(OUT, 'index.html'), 'utf8');
+  serviceWorker = readFileSync(join(OUT, 'sw.js'), 'utf8');
   const assetsDir = join(OUT, 'assets');
   for (const f of readdirSync(assetsDir)) {
     if (!f.endsWith('.js')) continue;
@@ -57,7 +60,7 @@ afterAll(() => {
   rmSync(OUT, { recursive: true, force: true });
 });
 
-describe('quest-base entry-import — every torii-entry URL carries the /quest/ deploy base (v0.2.370)', () => {
+describe('quest-base emitted artifacts — every deploy URL carries the /quest/ base', () => {
   it('the inline bootstrap imports the entry under the /quest/ base (not root-relative)', () => {
     const urls = collectEntryUrls(indexHtml);
     expect(urls.length).toBe(1);
@@ -93,5 +96,19 @@ describe('quest-base entry-import — every torii-entry URL carries the /quest/ 
   it('no static entry <script> tag survives (strict-dynamic loads it via the trusted inline import)', () => {
     expect(existsSync(join(OUT, 'index.html'))).toBe(true);
     expect(indexHtml).not.toMatch(/<script\b[^>]*\bsrc=["'][^"']*\/assets\/torii-entry\.js["']/);
+  });
+
+  it('registers the worker under the /quest/ deploy base with an explicit matching scope', () => {
+    expect(indexHtml).toContain("navigator.serviceWorker.register('/quest/sw.js', { scope: '/quest/' })");
+    expect(indexHtml).not.toContain("navigator.serviceWorker.register('/sw.js')");
+  });
+
+  it('keeps every precache entry relative and resolves it against the registration scope', () => {
+    const manifest = serviceWorker.match(/const PRECACHE_ASSETS = \[([\s\S]*?)\];/);
+    expect(manifest).not.toBeNull();
+    const entries = [...manifest[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]);
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries.every((entry) => !entry.startsWith('/'))).toBe(true);
+    expect(serviceWorker).toContain('new URL(asset, self.registration.scope).href');
   });
 });
